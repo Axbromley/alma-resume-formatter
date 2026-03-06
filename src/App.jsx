@@ -8,8 +8,13 @@ async function parseResumeWithClaude(rawText) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text: rawText })
   });
-  if (!response.ok) throw new Error("API error");
-  return response.json();
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error("API " + response.status + ": " + errText.slice(0,300));
+  }
+  const json = await response.json();
+  if (json.error) throw new Error("Server: " + json.error + " | " + (json.raw||"").slice(0,300));
+  return json;
 }
 
 function generateResumeHTML(resume) {
