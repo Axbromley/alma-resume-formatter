@@ -45,13 +45,21 @@ export default function App() {
         let binary = "";
         for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
         const base64 = btoa(binary);
-        const response = await fetch("/api/extract-pdf", {
+        const pdfResponse = await fetch("/api/parse", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ base64 })
+          body: JSON.stringify({ base64, fileType: "pdf" })
         });
-        const result = await response.json();
-        text = result.text || "";
+        if (!pdfResponse.ok) {
+          const errText = await pdfResponse.text();
+          throw new Error("API " + pdfResponse.status + ": " + errText.slice(0,300));
+        }
+        const pdfJson = await pdfResponse.json();
+        if (pdfJson.error) throw new Error("Server: " + pdfJson.error + " | " + (pdfJson.raw||"").slice(0,300));
+        setResumeData(pdfJson);
+        setResumeHTML(generateResumeHTML(pdfJson, null));
+        setStep("preview");
+        return;
       } else {
         text = await file.text();
       }
