@@ -1,6 +1,7 @@
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).end();
   const { text } = req.body;
+
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -10,31 +11,33 @@ export default async function handler(req, res) {
     },
     body: JSON.stringify({
       model: "claude-sonnet-4-20250514",
-      max_tokens: 1000,
-      messages: [{
-        role: "user",
-        content: `Extract the following fields from this resume text and return ONLY a JSON object with no markdown, no backticks, no preamble.
+      max_tokens: 2000,
+      messages: [{ role: "user", content: `You are extracting data from a resume. Return ONLY valid JSON, no markdown, no backticks.
 
-Fields:
-- fullName (string)
-- jobTitle (string)
-- profileSummary (string, 2-4 sentences)
-- education (array of {institution, year, degree})
-- skills (array of strings, max 12)
-- links (array of {platform, url})
-- languages (array of {language, level})
-- workExperience (array of {company, role, startDate, endDate, bullets: string[]})
+CRITICAL: Strip ALL contact info (phone, email, address, city, LinkedIn, websites). Copy everything else verbatim.
+
+Return this structure:
+{
+  "fullName": "",
+  "jobTitle": "",
+  "profileSummary": "",
+  "education": [{"institution": "", "year": "", "degree": ""}],
+  "skills": [],
+  "tools": [],
+  "languages": [{"language": "", "level": ""}],
+  "workExperience": [{"company": "", "role": "", "startDate": "", "endDate": "", "bullets": []}]
+}
 
 Resume text:
-${text}`
-      }]
+` + text }]
     })
   });
+
   const data = await response.json();
-  const content = data.content?.find(b => b.type === "text")?.text || "{}";
+  const raw = data.content?.find(b => b.type === "text")?.text || "{}";
   try {
-    res.status(200).json(JSON.parse(content.replace(/```json|```/g, "").trim()));
-  } catch {
-    res.status(500).json({ error: "Parse failed" });
+    res.status(200).json(JSON.parse(raw.replace(/```json|```/g, "").trim()));
+  } catch(e) {
+    res.status(500).json({ error: "Parse failed", raw });
   }
 }
